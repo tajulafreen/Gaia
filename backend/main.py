@@ -31,9 +31,7 @@ async def transcribe_audio(file: UploadFile = File(...)):
 
         # 🎯 Speech Detection Filter
         if len(result["text"].strip()) == 0:
-            os.remove(temp_audio_path)
-            if temp_audio_path != wav_path:
-                os.remove(wav_path)
+            
             return {"error": "No speech detected! 🎵 This is likely a music file."}
 
         # Cleanup temp files
