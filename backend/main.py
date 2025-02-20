@@ -9,7 +9,7 @@ app = FastAPI()
 @app.post("/transcribe/")
 async def transcribe_audio(file: UploadFile = File(...)):
     try:
-        # Save uploaded file
+        # ✅ Save uploaded file
         temp_audio_path = f"temp_{file.filename}"
         with open(temp_audio_path, "wb") as f:
             f.write(await file.read())
@@ -17,7 +17,7 @@ async def transcribe_audio(file: UploadFile = File(...)):
         if not os.path.exists(temp_audio_path):
             return {"error": "File not saved!"}
 
-        # Convert MP3 to WAV if needed
+        # ✅ Convert MP3 to WAV if needed
         if temp_audio_path.endswith(".mp3"):
             wav_path = temp_audio_path.replace(".mp3", ".wav")
             audio = AudioSegment.from_file(temp_audio_path)
@@ -25,21 +25,42 @@ async def transcribe_audio(file: UploadFile = File(...)):
         else:
             wav_path = temp_audio_path
 
-        # Load Whisper Model
+        # ✅ Load Whisper Model
         model = whisper.load_model("base")
-        result = model.transcribe(wav_path)
 
-        # 🎯 Speech Detection Filter
+        # ✅ Transcribe with timestamps
+        result = model.transcribe(wav_path, word_timestamps=True)
+
+        # ✅ Speech Detection Filter
         if len(result["text"].strip()) == 0:
-            
             return {"error": "No speech detected! 🎵 This is likely a music file."}
 
-        # Cleanup temp files
+        # ✅ Remove Duplicates
+        unique_sentences = []
+        seen = set()
+        for sentence in result["text"].split(". "):  # Split by sentence
+            if sentence not in seen:
+                unique_sentences.append(sentence)
+                seen.add(sentence)
+
+        cleaned_text = ". ".join(unique_sentences)
+
+        # ✅ Extract words with timestamps
+        words_with_timestamps = []
+        for segment in result["segments"]:
+            for word in segment["words"]:
+                words_with_timestamps.append({
+                    "word": word["word"],
+                    "start": word["start"],
+                    "end": word["end"]
+                })
+
+        # ✅ Cleanup temp files
         os.remove(temp_audio_path)
         if temp_audio_path != wav_path:
             os.remove(wav_path)
 
-        return {"transcription": result["text"]}
+        return {"transcription": cleaned_text, "timestamps": words_with_timestamps}
 
     except Exception as e:
         return {"error": str(e)}
